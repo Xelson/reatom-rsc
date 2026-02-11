@@ -1,8 +1,21 @@
+import { atom, sleep, wrap } from "@reatom/core";
 import Image from "next/image";
+import { ClientComponent } from "./client-component";
+import { reatomServerComponent, withSsr } from "./reatom-rsc";
 
-export default function Home() {
+const testAtom = atom(0).extend(withSsr({ key: "testAtom" }));
+export const anotherTestAtom = atom(0).extend(withSsr({ key: "anotherTestAtom" }));
+
+export default async function Page() {
+  return <Home />;
+}
+
+const Home = reatomServerComponent(() => {
+  console.log("render Home");
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
+      initial RSC data: {testAtom()}
+      <ServerComponent />
       <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
         <Image
           className="dark:invert"
@@ -62,4 +75,24 @@ export default function Home() {
       </main>
     </div>
   );
-}
+});
+
+const ServerComponent = reatomServerComponent(async () => {
+  await wrap(sleep(100));
+  testAtom.set(1337);
+
+  return (
+    <div>
+      <p>RSC data: {testAtom()}</p>
+      <NestedServerComponent />
+      <ClientComponent />
+    </div>
+  );
+});
+
+const NestedServerComponent = reatomServerComponent(async () => {
+  await wrap(sleep(20));
+  anotherTestAtom.set(42);
+
+  return <p>RSC nested data: {anotherTestAtom()}</p>;
+});
