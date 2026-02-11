@@ -1,19 +1,14 @@
-import { clearStack, context, Rec, wrap } from "@reatom/core";
-import { cache } from "react";
+import { Rec, wrap } from "@reatom/core";
 import { memoryStorage, Snapshot } from "./storage";
 import { ReatomHydrator } from "./hydrator";
-
-const reatomFrame = cache(() => {
-  clearStack();
-  return context.start();
-});
+import { frameCache } from "./frame-cache";
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export const reatomServerComponent = <Props extends Rec = {}>(
   renderFn: (props: Props) => React.ReactNode | Promise<React.ReactNode>,
 ) => {
   return (props: Props) => {
-    const frame = reatomFrame();
+    const frame = frameCache();
     return frame.run(async () => {
       const beforeSnapshot = { ...memoryStorage.snapshotAtom() };
       const node = await wrap(renderFn(props));

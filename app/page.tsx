@@ -1,12 +1,32 @@
-import { atom, sleep, wrap } from "@reatom/core";
+import {
+  atom,
+  reatomNumber,
+  Rec,
+  sleep,
+  withSearchParams,
+  wrap,
+} from "@reatom/core";
 import Image from "next/image";
 import { ClientComponent } from "./client-component";
-import { reatomServerComponent, withSsr } from "./reatom-rsc";
+import { reatomServerComponent, setupUrlAtom, withSsr } from "./reatom-rsc";
+import Link from "next/link";
+import { IncrementButton } from "./IncrementButton";
 
 const testAtom = atom(0).extend(withSsr({ key: "testAtom" }));
-export const anotherTestAtom = atom(0).extend(withSsr({ key: "anotherTestAtom" }));
+export const anotherTestAtom = atom(0).extend(
+  withSsr({ key: "anotherTestAtom" }),
+);
 
-export default async function Page() {
+export const pageAtom = reatomNumber(0).extend(
+  withSearchParams("page", { parse: Number }),
+);
+
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<Rec>;
+}) {
+  setupUrlAtom({ searchParams: await searchParams });
   return <Home />;
 }
 
@@ -15,6 +35,7 @@ const Home = reatomServerComponent(() => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
       initial RSC data: {testAtom()}
+      <Link href="/test?page=3">Go to next page</Link>
       <ServerComponent />
       <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
         <Image
@@ -86,6 +107,7 @@ const ServerComponent = reatomServerComponent(async () => {
       <p>RSC data: {testAtom()}</p>
       <NestedServerComponent />
       <ClientComponent />
+      <p>pageAtom: {pageAtom()} (static)</p> <IncrementButton />
     </div>
   );
 });
