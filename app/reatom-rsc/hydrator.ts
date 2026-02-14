@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { memoryStorage, type Snapshot } from "./storage";
 
+/** Merges a snapshot diff into the current client snapshot, preferring newer timestamps. */
 const applySnapshotDiff = (currentSnapshot: Snapshot, diff: Snapshot) => {
   const next = { ...currentSnapshot };
   let modified = false
@@ -25,6 +26,7 @@ type ReatomHydratorProps = {
   snapshotDiff: Snapshot;
 };
 
+/** Client component that applies a server-rendered snapshot diff to the client-side memory storage. Renders nothing. */
 export const ReatomHydrator = ({ snapshotDiff }: ReatomHydratorProps) => {
   useMemo(() => {
     if(typeof window !== 'undefined')
