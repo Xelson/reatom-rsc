@@ -16,10 +16,10 @@ export const EpisodesList = reatomComponent(() => {
         ))}
     </ul>
   );
-}, 'EpisodesList');
+}, "EpisodesList");
 
 export const EpisodesListPagination = reatomComponent(() => {
-  const pages = memo(() => fetchEpisodes.data().info.pages)
+  const pages = memo(() => fetchEpisodes.data()?.info.pages);
 
   return (
     <div className="flex justify-between items-center mt-4">
@@ -40,4 +40,4 @@ export const EpisodesListPagination = reatomComponent(() => {
       </button>
     </div>
   );
-}, 'EpisodesListPagination');
+}, "EpisodesListPagination");

@@ -3,7 +3,7 @@ import { frameCache } from "./frame-cache";
 import { noop, Rec, urlAtom } from "@reatom/core";
 
 /** Memoized helper that sets `urlAtom` inside the current frame, disabling browser sync for SSR. */
-const urlCache = cache((url: URL) => {
+export const urlCache = cache((url: URL) => {
   const frame = frameCache();
   return frame.run(() => {
     urlAtom.sync.set(() => noop);

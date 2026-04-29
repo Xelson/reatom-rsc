@@ -1,4 +1,9 @@
-import { createMemStorage, PersistRecord, reatomPersist, Rec } from "@reatom/core";
+import {
+  createMemStorage,
+  PersistRecord,
+  reatomPersist,
+  Rec,
+} from "@reatom/core";
 
 /** In-memory persist storage used to track atom state for SSR hydration. */
 export const memoryStorage = createMemStorage({ name: "ssr" });

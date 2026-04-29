@@ -9,11 +9,11 @@ importers:
   .:
     dependencies:
       '@reatom/core':
-        specifier: ^1000.1.0
-        version: 1000.1.0
+        specifier: ^1000.15.2
+        version: 1000.15.2
       '@reatom/react':
-        specifier: ^1000.0.0
-        version: 1000.0.0(@reatom/core@1000.1.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: ^1000.2.2
+        version: 1000.2.2(@reatom/core@1000.15.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       next:
         specifier: 16.1.1
         version: 16.1.1(@babel/core@7.28.5)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -414,13 +414,13 @@ packages:
     resolution: {integrity: sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==}
     engines: {node: '>=12.4.0'}
 
-  '@reatom/core@1000.1.0':
-    resolution: {integrity: sha512-PZN27dVko4RuP3LD4Hcdxwx8yi9OieHAhj3Zxcf7kk4n3h+NoO3fd62b/COL/wHuBtTIFO7XfWVWZFqWiF5bxw==}
+  '@reatom/core@1000.15.2':
+    resolution: {integrity: sha512-ychH11wZaVHHYsfPuPQvgGr8YyonURggwQwiaTxy+164nRfDnXXgbvuaWePjim7K3FR3LfI6ydYNoqJnDh88Bg==}
 
-  '@reatom/react@1000.0.0':
-    resolution: {integrity: sha512-e2aNUFeeUeiMoQfTQZd5Z4Ctd3g53WaggjsRtwjw8HhO+0Xl4LjU4trhnLOVIqf9B91XCKpAErWyqOlbM5ROWw==}
+  '@reatom/react@1000.2.2':
+    resolution: {integrity: sha512-QxNFwtmbsIK/DUtmjebfW9gmW+d+4UPZVq1f+Nb2wkiNOZ8yUh7o0i4xAs83nneZOFqcqwNiYKfDrEpBozMCvA==}
     peerDependencies:
-      '@reatom/core': ^1000.0.0
+      '@reatom/core': ^1000.14.1
       react: '>=18.2.0'
       react-dom: '>=18.2.0'
 
@@ -2277,15 +2277,15 @@ snapshots:
 
   '@nolyfill/is-core-module@1.0.39': {}
 
-  '@reatom/core@1000.1.0':
+  '@reatom/core@1000.15.2':
     dependencies:
       '@standard-schema/spec': 1.1.0
     optionalDependencies:
       idb-keyval: 6.2.2
 
-  '@reatom/react@1000.0.0(@reatom/core@1000.1.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+  '@reatom/react@1000.2.2(@reatom/core@1000.15.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
-      '@reatom/core': 1000.1.0
+      '@reatom/core': 1000.15.2
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
 

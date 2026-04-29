@@ -9,7 +9,6 @@ import {
 import Image from "next/image";
 import { ClientComponent } from "./client-component";
 import { reatomServerComponent, setupUrlAtom, withSsr } from "./reatom-rsc";
-import Link from "next/link";
 import { IncrementButton } from "./IncrementButton";
 
 const testAtom = atom(0).extend(withSsr({ key: "testAtom" }));
@@ -34,9 +33,10 @@ const Home = reatomServerComponent(() => {
   console.log("render Home");
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      initial RSC data: {testAtom()}
-      <Link href="/test?page=3">Go to next page</Link>
-      <ServerComponent />
+      <div className="flex flex-col">
+        <p>initial RSC data: {testAtom()}</p>
+        <ServerComponent />
+      </div>
       <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
         <Image
           className="dark:invert"
@@ -106,7 +106,6 @@ const ServerComponent = reatomServerComponent(async () => {
     <div>
       <p>RSC data: {testAtom()}</p>
       <NestedServerComponent />
-      <ClientComponent />
       <p>pageAtom: {pageAtom()} (static)</p> <IncrementButton />
     </div>
   );
@@ -116,5 +115,10 @@ const NestedServerComponent = reatomServerComponent(async () => {
   await wrap(sleep(20));
   anotherTestAtom.set(42);
 
-  return <p>RSC nested data: {anotherTestAtom()}</p>;
+  return (
+    <div>
+      RSC nested data: {anotherTestAtom()}
+      <ClientComponent />
+    </div>
+  );
 });
