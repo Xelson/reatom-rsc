@@ -6,7 +6,7 @@ import {
   withSearchParams,
   wrap,
 } from "@reatom/core";
-import { throwOnHydration, withSsr } from "../reatom-rsc";
+import { throwAbortOnHydration, withSsr } from "../reatom-rsc";
 
 export const page = reatomNumber(1, "fetchEpisodes.page").extend(
   withSearchParams("page", (page) => Number(page)),
@@ -19,7 +19,7 @@ type Response = {
 
 export const fetchEpisodes = computed(async () => {
   const p = page();
-  throwOnHydration();
+  throwAbortOnHydration();
 
   const response = await wrap(
     fetch(`https://rickandmortyapi.com/api/episode?page=${p}`),
