@@ -39,20 +39,55 @@ export default function RootLayout({
 }
 ```
 
-If you need to interact with the reatom context at the top level — e.g. to attach a logger before any component reads atoms — create the frame yourself and pass it through the `frame` prop:
+If you need to interact with the reatom context at the top level — e.g. to attach a logger before any component reads atoms — create the frame **inside the highest client component** (a conventional `Providers` wrapper) and pass it through the `frame` prop.
+
+> ⚠️ **Why a client component, not a module-level constant?** Module code runs independently on the server and on the client. A `context.start()` created at module scope would create *separate* frames on each side, and a logger attached on the server module would never appear on the client. Putting the frame in a client component is the only way to make top-level frame setup actually reach the browser.
 
 ```tsx
-// app/reatom-frame.ts
-import { connectLogger, context } from "@reatom/core";
+// app/Providers.tsx
+"use client";
 
-export const rootFrame = context.start();
-connectLogger(rootFrame);
+import { connectLogger, context } from "@reatom/core";
+import { useState, type PropsWithChildren } from "react";
+import { ReatomNextJsContextProvider } from "./reatom-nextjs/Provider";
+
+export function Providers({ children }: PropsWithChildren) {
+  const [rootFrame] = useState(() => {
+    const frame = context.start();
+    // run inside the frame so the logger is attached to *this* context
+    frame.run(connectLogger);
+    return frame;
+  });
+
+  return (
+    <ReatomNextJsContextProvider frame={rootFrame}>
+      {children}
+    </ReatomNextJsContextProvider>
+  );
+}
 
 // app/layout.tsx
-<ReatomNextJsContextProvider frame={rootFrame}>
-  {children}
-</ReatomNextJsContextProvider>;
+import { Suspense } from "react";
+import { Providers } from "./Providers";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <Suspense>
+          <Providers>{children}</Providers>
+        </Suspense>
+      </body>
+    </html>
+  );
+}
 ```
+
+You can scope the setup to a specific environment by guarding the `frame.run(...)` call:
+
+- **Both client and SSR pass of client components** — call unconditionally (as above). Useful when you want the same observability on both sides.
+- **Client only** — wrap in `if (typeof window !== 'undefined')`. Most common for browser-only tooling like `connectLogger` to keep server logs clean.
+- **SSR only** — wrap in `if (typeof window === 'undefined')`. Rare, but useful for server-only diagnostics.
 
 When `frame` is omitted the provider creates a fresh context internally; when provided it reuses the given one.
 

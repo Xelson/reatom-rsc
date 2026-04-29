@@ -20,14 +20,14 @@ export const pageAtom = reatomNumber(0).extend(
   withSearchParams("page", { parse: Number }),
 );
 
-export default async function Page({
+export default reatomServerComponent(async function Page({
   searchParams,
 }: {
   searchParams: Promise<Rec>;
 }) {
   setupUrlAtom({ searchParams: await wrap(searchParams) });
   return <Home />;
-}
+});
 
 const Home = reatomServerComponent(() => {
   console.log("render Home");

@@ -1,8 +1,8 @@
+import "./globals.css";
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { ReatomNextJsContextProvider } from "./reatom-nextjs/Provider";
-import { Suspense } from "react";
+import { Providers } from "./reatom-rsc/Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,9 +29,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Suspense>
-          <ReatomNextJsContextProvider>{children}</ReatomNextJsContextProvider>
-        </Suspense>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

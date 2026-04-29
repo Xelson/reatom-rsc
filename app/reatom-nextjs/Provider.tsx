@@ -66,6 +66,21 @@ type ReatomNextJsContextProviderProps = PropsWithChildren<{
  * provider mounts — most commonly to attach a logger or other top-level
  * integrations to the same context the React tree will use.
  *
+ * **The frame must be created inside a client component**, typically a
+ * top-level `Providers` wrapper. Module-scope code runs separately on the
+ * server and the client, so a `context.start()` created at the top of a
+ * module would produce *different* frames on each side and any setup attached
+ * server-side (e.g. `connectLogger`) would never reach the browser. Creating
+ * the frame inside a client component (memoized via `useState`) is the only
+ * way to ensure top-level frame setup actually applies on the client.
+ *
+ * Within the client component you can scope the setup by environment:
+ * - call `frame.run(connectLogger)` unconditionally for both the client and
+ *   the SSR pass of client components,
+ * - guard with `if (typeof window !== 'undefined')` for client-only setup
+ *   (typical for browser-only tooling like `connectLogger`),
+ * - guard with `if (typeof window === 'undefined')` for SSR-only setup.
+ *
  * @example Basic usage in `app/layout.tsx`
  * ```tsx
  * import { Suspense } from "react";
@@ -88,30 +103,43 @@ type ReatomNextJsContextProviderProps = PropsWithChildren<{
  * }
  * ```
  *
- * @example Reusing a custom frame to attach `connectLogger`
+ * @example Attaching `connectLogger` via a top-level client `Providers` component
  * ```tsx
- * // app/reatom-frame.ts
+ * // app/Providers.tsx
+ * "use client";
+ *
  * import { connectLogger, context } from "@reatom/core";
+ * import { useState, type PropsWithChildren } from "react";
+ * import { ReatomNextJsContextProvider } from "./reatom-nextjs/Provider";
  *
- * // create the frame at module scope so non-React code can use it too
- * export const rootFrame = context.start();
+ * export function Providers({ children }: PropsWithChildren) {
+ *   const [rootFrame] = useState(() => {
+ *     const frame = context.start();
+ *     // run inside the frame so the logger is attached to *this* context
+ *     // (we execute `connectLogger` in the frame's scope, not pass the
+ *     // frame to it). Guard with `typeof window` if you want client-only
+ *     // or SSR-only setup.
+ *     frame.run(connectLogger);
+ *     return frame;
+ *   });
  *
- * // attach the logger before any component reads or writes atoms
- * connectLogger(rootFrame);
+ *   return (
+ *     <ReatomNextJsContextProvider frame={rootFrame}>
+ *       {children}
+ *     </ReatomNextJsContextProvider>
+ *   );
+ * }
  *
  * // app/layout.tsx
  * import { Suspense } from "react";
- * import { ReatomNextJsContextProvider } from "./reatom-nextjs/Provider";
- * import { rootFrame } from "./reatom-frame";
+ * import { Providers } from "./Providers";
  *
- * export default function RootLayout({ children }) {
+ * export default function RootLayout({ children }: { children: React.ReactNode }) {
  *   return (
  *     <html lang="en">
  *       <body>
  *         <Suspense>
- *           <ReatomNextJsContextProvider frame={rootFrame}>
- *             {children}
- *           </ReatomNextJsContextProvider>
+ *           <Providers>{children}</Providers>
  *         </Suspense>
  *       </body>
  *     </html>
