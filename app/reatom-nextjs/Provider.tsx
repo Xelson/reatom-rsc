@@ -1,16 +1,19 @@
 "use client";
 
-import { context, noop, urlAtom } from "@reatom/core";
+import { context, noop, RootFrame, urlAtom } from "@reatom/core";
 import { PropsWithChildren, useState } from "react";
 import { reatomContext } from "@reatom/react";
 import { usePathname, useSearchParams } from "next/navigation";
 
-export function ReatomNextJsContextProvider({ children }: PropsWithChildren) {
+export function ReatomNextJsContextProvider({
+  children,
+  frame: propsFrame,
+}: PropsWithChildren & { frame?: RootFrame }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const [frame] = useState(() => {
-    const frame = context.start();
+    const frame = propsFrame ?? context.start();
     if (typeof window === "undefined") {
       frame.run(() => {
         urlAtom.sync.set(() => noop);
