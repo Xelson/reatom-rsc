@@ -25,7 +25,7 @@ export default async function Page({
 }: {
   searchParams: Promise<Rec>;
 }) {
-  setupUrlAtom({ searchParams: await searchParams });
+  setupUrlAtom({ searchParams: await wrap(searchParams) });
   return <Home />;
 }
 
