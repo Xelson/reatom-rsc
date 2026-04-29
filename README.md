@@ -4,10 +4,57 @@ Seamless isomorphic rendering integration for [Reatom](https://reatom.dev) with 
 
 ## Key concepts
 
+- **The whole app must be wrapped in `<ReatomNextJsContextProvider>`.** The provider supplies a shared reatom context to all client components and initializes `urlAtom` during the server-side rendering pass of client components. Without it, URL-dependent atoms (`withSearchParams`) throw during SSR, and atoms have no shared client-tree context.
 - **Server components only have access to atoms when wrapped in `reatomServerComponent`.** Without it, atom reads/writes have no effect during RSC render.
 - **Atoms in RSC are static, atoms in client components are reactive.** A server component renders the atom value at request time; a client component (`reatomComponent`) subscribes to changes and re-renders on every update. On navigation, the server may re-render with fresh data and override the client value if the server snapshot is newer.
-- **Search params require explicit setup on the server.** If atoms depend on URL via `withSearchParams`, call `setupUrlAtom` before rendering. On the client this happens automatically through the browser History API.
+- **Search params require explicit setup on the server.** If atoms depend on URL via `withSearchParams`, call `setupUrlAtom` inside the RSC before rendering. On the client this happens automatically through the browser History API; the SSR pass for client components is handled by `ReatomNextJsContextProvider`.
+- **Async computeds with `withSsr` should call `throwAbortOnHydration` after collecting dependencies** to avoid re-fetching the same data on the first client render.
 - **Every async operation inside `reatomServerComponent` must be wrapped in `wrap`.** This preserves the reatom execution context across async boundaries.
+
+## Setup
+
+Wrap your application with `<ReatomNextJsContextProvider>` in the root layout.
+
+> ⚠️ **The provider must be placed inside a `<Suspense>` boundary.** Internally it calls `useSearchParams()` from `next/navigation`, and Next.js requires every consumer of that hook to have a `<Suspense>` ancestor — otherwise the production build (`next build`) fails. See [Next.js docs on `useSearchParams`](https://nextjs.org/docs/app/api-reference/functions/use-search-params).
+
+```tsx
+// app/layout.tsx
+import { Suspense } from "react";
+import { ReatomNextJsContextProvider } from "./reatom-nextjs/Provider";
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <Suspense>
+          <ReatomNextJsContextProvider>{children}</ReatomNextJsContextProvider>
+        </Suspense>
+      </body>
+    </html>
+  );
+}
+```
+
+If you need to interact with the reatom context at the top level — e.g. to attach a logger before any component reads atoms — create the frame yourself and pass it through the `frame` prop:
+
+```tsx
+// app/reatom-frame.ts
+import { connectLogger, context } from "@reatom/core";
+
+export const rootFrame = context.start();
+connectLogger(rootFrame);
+
+// app/layout.tsx
+<ReatomNextJsContextProvider frame={rootFrame}>
+  {children}
+</ReatomNextJsContextProvider>;
+```
+
+When `frame` is omitted the provider creates a fresh context internally; when provided it reuses the given one.
 
 ## How it works
 
@@ -17,7 +64,25 @@ Seamless isomorphic rendering integration for [Reatom](https://reatom.dev) with 
 
 ## Public API
 
-The package exports three symbols from `reatom-rsc/index.ts`:
+The integration exports four symbols from `reatom-rsc/index.ts` and one from `reatom-nextjs/Provider.tsx`:
+
+---
+
+### `ReatomNextJsContextProvider`
+
+Root client provider that supplies a shared reatom context to the whole app and initializes `urlAtom` during the server-side rendering pass of client components. Required wrapper at the layout level. Internally reads `usePathname()` and `useSearchParams()` from `next/navigation` to construct the URL during SSR; on the client this is a no-op since `urlAtom` is wired to the History API.
+
+```ts
+function ReatomNextJsContextProvider(props: {
+  children: React.ReactNode;
+  /**
+   * If omitted — a fresh `context.start()` frame is created internally.
+   * If provided — the supplied frame is reused (handy for top-level
+   * integrations like `connectLogger`).
+   */
+  frame?: RootFrame;
+}): JSX.Element;
+```
 
 ---
 
@@ -54,6 +119,30 @@ function setupUrlAtom(input: { searchParams: Rec<string> }): URL;
 
 ---
 
+### `throwAbortOnHydration`
+
+Bail-out helper for async computeds whose `.data` is hydrated from the server via `withSsr`. Call it **after** reading dependencies and **before** the actual side effect — on the first client render it aborts the computed (without raising an error to consumers) so the hydrated value is preserved instead of being overwritten by a redundant client-side fetch. On subsequent dependency changes the body runs in full and triggers a real refetch.
+
+The function only aborts when both `isInit()` is true and `typeof window !== 'undefined'` — on the server the body always runs.
+
+```ts
+function throwAbortOnHydration(): void;
+```
+
+```ts
+export const fetchEpisodes = computed(async () => {
+  const p = page(); // 1. read deps to wire the dependency graph
+  throwAbortOnHydration(); // 2. bail out on first client render
+  const res = await wrap(
+    // 3. real fetch — runs on server / on invalidations
+    fetch(`https://rickandmortyapi.com/api/episode?page=${p}`),
+  );
+  return wrap(res.json());
+}, "fetchEpisodes").extend(withAsyncData());
+```
+
+---
+
 ## Example: episodes list with pagination
 
 A complete example showing model → server page → client component flow.
@@ -63,8 +152,14 @@ A complete example showing model → server page → client component flow.
 Define atoms and async data fetching. Decorate only the data atom that needs to cross the server→client boundary:
 
 ```ts
-import { computed, reatomNumber, withAsyncData, withSearchParams, wrap } from "@reatom/core";
-import { withSsr } from "../reatom-rsc";
+import {
+  computed,
+  reatomNumber,
+  withAsyncData,
+  withSearchParams,
+  wrap,
+} from "@reatom/core";
+import { throwAbortOnHydration, withSsr } from "../reatom-rsc";
 
 // reactive page number, synced with ?page= search param
 export const page = reatomNumber(1, "fetchEpisodes.page").extend(
@@ -73,7 +168,14 @@ export const page = reatomNumber(1, "fetchEpisodes.page").extend(
 
 // async computed — re-fetches when `page` changes
 export const fetchEpisodes = computed(async () => {
-  const res = await wrap(fetch(`https://rickandmortyapi.com/api/episode?page=${page()}`));
+  // 1. read deps first so the dependency graph is wired
+  const p = page();
+  // 2. bail out on the first client render — `.data` is already hydrated
+  throwAbortOnHydration();
+  // 3. real fetch — runs on server, and again on later invalidations
+  const res = await wrap(
+    fetch(`https://rickandmortyapi.com/api/episode?page=${p}`),
+  );
   return wrap(res.json());
 }, "fetchEpisodes").extend(withAsyncData());
 
@@ -141,9 +243,7 @@ export const EpisodesListPagination = reatomComponent(() => {
         Previous
       </button>
       <span>Page {page()}</span>
-      <button onClick={wrap(() => page.increment())}>
-        Next
-      </button>
+      <button onClick={wrap(() => page.increment())}>Next</button>
     </div>
   );
 });
@@ -151,10 +251,24 @@ export const EpisodesListPagination = reatomComponent(() => {
 
 ## Internal modules
 
-| Module | Role |
-|---|---|
-| `storage.ts` | Creates the in-memory persist storage (`memoryStorage`) and the `withSsr` decorator |
-| `frame-cache.ts` | Uses React `cache()` to create one isolated reatom context frame per RSC request |
-| `hydrator.ts` | Client component that applies snapshot diffs to the client-side storage |
-| `server-component.tsx` | Implements `reatomServerComponent` — snapshot diffing and `<ReatomHydrator>` injection |
-| `url.ts` | SSR-safe `urlAtom` initialization for search params support |
+| Module                            | Role                                                                                                                             |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `reatom-rsc/storage.ts`           | Creates the in-memory persist storage (`memoryStorage`) and the `withSsr` decorator                                              |
+| `reatom-rsc/frame-cache.ts`       | Uses React `cache()` to create one isolated reatom context frame per RSC request                                                 |
+| `reatom-rsc/hydrator.ts`          | Client component that applies snapshot diffs to the client-side storage                                                          |
+| `reatom-rsc/server-component.tsx` | Implements `reatomServerComponent` — snapshot diffing and `<ReatomHydrator>` injection                                           |
+| `reatom-rsc/url.ts`               | SSR-safe `urlAtom` initialization for search params support                                                                      |
+| `reatom-rsc/hydration.ts`         | `throwAbortOnHydration` — first-render bail-out for SSR-hydrated computeds                                                       |
+| `reatom-nextjs/Provider.tsx`      | `ReatomNextJsContextProvider` — root provider that wires reatom context and bridges `urlAtom` into the client-component SSR pass |
+
+## What's next
+
+The API in this repo is still evolving and being battle-tested. The roadmap:
+
+1. **Distribute `reatom-rsc` via [reatom reusables](https://reatom.github.io/reusables/)** — that's the immediate next step. Reusables are a great fit while the API is iterating: changes can ship and get feedback without a full package release cycle.
+
+2. **Promote `reatom-rsc` into the official `@reatom/react/rsc` entry point.** The current package is intentionally framework-agnostic — RSC has long been a React feature, not a Next.js one — so it belongs alongside `@reatom/react` rather than in a Next.js-specific package.
+
+3. **Move Next.js–specific glue into `@reatom/next-js`.** Once the framework-agnostic core lives in `@reatom/react/rsc`, anything that depends on `next/navigation` or etc, Next.js conventions, or App Router specifics (currently `ReatomNextJsContextProvider`) will graduate into a dedicated `@reatom/next-js` package.
+
+Until then, expect API churn — pin your dependency and watch the changelog.
